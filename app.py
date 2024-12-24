@@ -3,6 +3,7 @@ from datasets import load_dataset
 import random
 import requests
 import json
+import re
 
 app = Flask(__name__)
 
@@ -10,36 +11,41 @@ print("Loading FineMath dataset...")
 try:
     # Adjust split or dataset name as needed
     dataset = load_dataset("HuggingFaceTB/finemath", "finemath-4plus", split="train[:1000]")
-    print(f"Loaded {len(dataset)} samples")
+    print(f"Successfully loaded {len(dataset)} samples")
+    print(f"First sample: {dataset[0]}")  # Print first sample to verify content
 except Exception as e:
     print(f"Error loading dataset: {e}")
     dataset = []
 
 def extract_question(text: str) -> str:
-    """Extract a math question from text, looking for common patterns."""
-    markers = ["Problem:", "Question:", "Find:", "Solve:", "Calculate:"]
+    """Extract a question from text."""
+    # Remove markdown headers and clean up
+    text = re.sub(r'^#\s+', '', text)
+    text = text.replace('\n', ' ').strip()
     
-    for marker in markers:
-        if marker in text:
-            parts = text.split(marker)
-            if len(parts) > 1:
-                question_part = parts[1].split("\n")[0].strip()
-                if len(question_part) > 10 and len(question_part) < 500:
-                    return question_part
+    # Take first substantial chunk of text
+    sentences = text.split('.')
+    for sentence in sentences:
+        clean = sentence.strip()
+        if len(clean) > 10:  # Just check it's not empty
+            return clean
+            
+    return text  # If we can't find a good sentence, return the whole thing
+
+def format_question(text: str) -> str:
+    """Format a question, preserving any LaTeX if present."""
+    # If it already has LaTeX markers, leave it alone
+    if '$' in text or '\\[' in text or '\\(' in text:
+        return text
     
-    # Fallback: take first paragraph if it looks like a question
-    first_para = text.split("\n")[0].strip()
-    if len(first_para) > 10 and len(first_para) < 500 and ("?" in first_para or "=" in first_para):
-        return first_para
-        
-    return None
+    # Otherwise just return the text as is
+    return text
 
 def stream_ollama(prompt: str):
     """
     Query Ollama API with streaming response.
     We append instructions for Markdown + LaTeX usage to every prompt.
     """
-    # Add your "Provide your response using markdown ..." instructions here:
     prompt_with_latex = (
         prompt
         + "\n\nProvide your response using **Markdown** formatting with **LaTeX** math."
@@ -89,22 +95,21 @@ def create_stream_response(tokens):
         sse_json = json.dumps({"token": token})
         yield f"data: {sse_json}\n\n"
 
+@app.route('/get_question')
+def get_question():
+    if not dataset:
+        return jsonify({'error': 'No dataset loaded'}), 500
 
+    # Just take one random sample and use it
+    sample = random.choice(dataset)
+    question = extract_question(sample['text'])
+    formatted = format_question(question)
+    return jsonify({'question': formatted})
+
+# Update home route to just return the template
 @app.route('/')
 def home():
-    if not dataset:
-        # If dataset is empty or not loaded
-        return render_template('index.html', question="Error: No dataset loaded")
-
-    # Try up to 10 times to grab a question that is not None
-    for _ in range(10):
-        sample = random.choice(dataset)
-        question = extract_question(sample['text'])
-        if question:
-            return render_template('index.html', question=question)
-
-    # If nothing was found
-    return render_template('index.html', question="Error: Could not find a suitable question")
+    return render_template('index.html', question="Loading question...")
 
 @app.route('/get_hint', methods=['POST'])
 def get_hint():

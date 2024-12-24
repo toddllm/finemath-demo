@@ -233,3 +233,13 @@ input[type="text"] {
     font-size: 1em;
     padding: 0.5rem;
 }
+
+.loading-question {
+    color: #666;
+    font-style: italic;
+}
+
+.loading-question::after {
+    content: '▋';
+    animation: blink 1s infinite;
+}

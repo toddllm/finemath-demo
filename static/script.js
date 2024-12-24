@@ -10,6 +10,27 @@ function toggleDarkMode() {
     localStorage.setItem('darkMode', isDark);
 }
 
+function formatQuestion() {
+    const questionElement = document.getElementById('question');
+    if (!questionElement) return; // Guard against missing element
+
+    const questionText = questionElement.textContent || questionElement.innerText;
+    if (!questionText) return; // Guard against empty content
+    
+    try {
+        // Don't format if it's an error message
+        if (!questionText.startsWith('Error:')) {
+            questionElement.innerHTML = md.render(questionText);
+        }
+    } catch (error) {
+        console.error('Error rendering question:', error);
+        questionElement.textContent = questionText; // Fallback to plain text
+    }
+    
+    // Remove loading state
+    questionElement.classList.remove('loading-question');
+}
+
 // Generic streaming function for server-sent events
 async function streamResponse(url, data, responseElement, loadingElement) {
     loadingElement.style.display = 'block';
@@ -114,8 +135,35 @@ async function showFullSolution() {
         document.getElementById('solution-loading')
     );
 }
+async function loadQuestion() {
+    const questionElement = document.getElementById('question');
+    questionElement.classList.add('loading-question');
+    console.log("Loading new question...");
 
-// Initialize everything after DOM loads
+    try {
+        const response = await fetch('/get_question');
+        const data = await response.json();
+        console.log("Received response:", data);
+        
+        if (data.error) {
+            console.error("Error from server:", data.error);
+            questionElement.textContent = data.error;
+            return;
+        }
+
+        console.log("Setting question text:", data.question);
+        questionElement.textContent = data.question;
+        formatQuestion(); // Format after setting text
+        console.log("Question formatted");
+    } catch (error) {
+        console.error('Error loading question:', error);
+        questionElement.textContent = 'Error loading question. Please try again.';
+    } finally {
+        questionElement.classList.remove('loading-question');
+    }
+}
+
+// Update the DOMContentLoaded listener to load question after initialization
 document.addEventListener('DOMContentLoaded', () => {
     // Set initial dark mode state
     document.body.classList.add('dark-mode');
@@ -149,4 +197,12 @@ document.addEventListener('DOMContentLoaded', () => {
             throwOnError: false
         }
     });
+
+    // Load the initial question
+    loadQuestion();
 });
+
+// Also update the New Question button handler
+async function newQuestion() {
+    await loadQuestion();
+}

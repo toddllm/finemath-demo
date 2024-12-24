@@ -26,7 +26,7 @@
     
     <div class="question">
         <h3>Question:</h3>
-        <p id="question">{{ question }}</p>
+        <p id="question" class="loading-question">Loading question...</p>
     </div>
 
     <div class="input-area">
@@ -60,7 +60,7 @@
     <div class="answer" id="answer"></div>
     
     <div class="button-group">
-        <button onclick="window.location.reload()">New Question</button>
+        <button onclick="newQuestion()">New Question</button>
         <button onclick="showFullSolution()">Show Full Solution</button>
     </div>
 </body>
