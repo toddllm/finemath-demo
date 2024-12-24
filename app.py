@@ -17,11 +17,61 @@ HTML_TEMPLATE = """
             max-width: 800px; 
             margin: 2rem auto; 
             padding: 0 1rem; 
+            transition: background-color 0.3s, color 0.3s;
+        }
+        /* Dark mode styles */
+        body.dark-mode { 
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+        }
+        .dark-mode .question { 
+            background-color: #2d2d2d; 
+        }
+        .dark-mode .answer { 
+            background-color: #1a2632; 
+        }
+        .dark-mode .hint-area { 
+            background-color: #1a291f; 
+        }
+        .dark-mode .work-area { 
+            background-color: #2d2616; 
+        }
+        .dark-mode textarea,
+        .dark-mode input {
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            border: 1px solid #404040;
+        }
+        .dark-mode button {
+            background-color: #404040;
+            color: #e0e0e0;
+            border: 1px solid #505050;
+        }
+        .dark-mode #checkAnswer {
+            background-color: #2d4d33;
+        }
+        /* Theme toggle button */
+        .theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.5rem;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            border: none;
+            background: transparent;
         }
         .question, .answer, .work-area, .hint-area { 
             padding: 1rem; 
             margin: 1rem 0; 
-            border-radius: 4px; 
+            border-radius: 4px;
+            transition: background-color 0.3s;
         }
         .question { background-color: #f0f0f0; }
         .answer { background-color: #e3f2fd; display: none; }
@@ -31,6 +81,7 @@ HTML_TEMPLATE = """
             padding: 0.5rem 1rem; 
             margin: 0.5rem;
             cursor: pointer;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
         }
         .loading { 
             display: none; 
@@ -43,6 +94,7 @@ HTML_TEMPLATE = """
             min-height: 100px;
             margin: 0.5rem 0;
             padding: 0.5rem;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
         }
         .input-area {
             margin: 1rem 0;
@@ -75,6 +127,22 @@ HTML_TEMPLATE = """
         }
     </style>
     <script>
+        // Dark mode toggle
+        function toggleDarkMode() {
+            const body = document.body;
+            const button = document.getElementById('theme-toggle');
+            const isDark = body.classList.toggle('dark-mode');
+            button.textContent = isDark ? '🌞' : '🌙';
+            localStorage.setItem('darkMode', isDark);
+        }
+
+        // Load saved theme preference
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.classList.add('dark-mode');
+            document.getElementById('theme-toggle').textContent = '🌞';
+            localStorage.setItem('darkMode', true);
+        });
+
         async function streamResponse(url, data, responseElement, loadingElement) {
             loadingElement.style.display = 'block';
             responseElement.textContent = '';
@@ -176,6 +244,10 @@ HTML_TEMPLATE = """
     </script>
 </head>
 <body>
+    <button onclick="toggleDarkMode()" id="theme-toggle" class="theme-toggle">
+    🌞
+    </button>
+
     <h1>Math Learning Assistant</h1>
     
     <div class="question">
@@ -358,5 +430,5 @@ if __name__ == '__main__':
     if not dataset:
         print("Error: Could not load dataset. Please check your internet connection and try again.")
         exit(1)
-        
+
     app.run(debug=True, port=5000)
