@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html class="dark-mode">
+<head>
+    <title>Math Learning Assistant</title>
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/13.0.1/markdown-it.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it-texmath@1.0.0/texmath.min.js"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/markdown-it-texmath/css/texmath.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+    <!-- Application Script -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</head>
+<body class="dark-mode">
+    <button onclick="toggleDarkMode()" id="theme-toggle" class="theme-toggle">
+        🌞
+    </button>
+
+    <h1>Math Learning Assistant</h1>
+    
+    <div class="question">
+        <h3>Question:</h3>
+        <p id="question">{{ question }}</p>
+    </div>
+
+    <div class="input-area">
+        <h3>Your Answer:</h3>
+        <input type="text" id="user-answer" placeholder="Enter your answer here..." style="padding: 0.5rem; width: 200px;">
+        <button onclick="checkAnswer()" id="checkAnswer">Check Answer</button>
+        <div id="check-loading" class="loading">Teacher is reviewing your answer...</div>
+        <div id="feedback" class="response-area"></div>
+    </div>
+
+    <div class="work-area">
+        <h3>Your Work:</h3>
+        <textarea placeholder="Work out your solution here..."></textarea>
+    </div>
+
+    <div class="hint-area">
+        <h3>Need Help?</h3>
+        <button onclick="getHint()">Get Hint</button>
+        <div id="hint-loading" class="loading">Teacher is writing a hint...</div>
+        <div id="hint-text" class="response-area"></div>
+        
+        <h4>Ask a Specific Question:</h4>
+        <textarea id="user-question" placeholder="E.g., 'How do I start solving this?' or 'Can you explain the first step?'"></textarea>
+        <button onclick="askQuestion()">Ask</button>
+        <div id="question-loading" class="loading">Teacher is typing...</div>
+        <div id="llm-response" class="response-area"></div>
+    </div>
+
+    <div id="error" class="error"></div>
+    <div id="solution-loading" class="loading">Teacher is writing the complete solution...</div>
+    <div class="answer" id="answer"></div>
+    
+    <div class="button-group">
+        <button onclick="window.location.reload()">New Question</button>
+        <button onclick="showFullSolution()">Show Full Solution</button>
+    </div>
+</body>
+</html>

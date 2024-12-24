@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, jsonify, request, Response
+from flask import Flask, render_template, jsonify, request, Response
 from datasets import load_dataset
 import random
 import requests
@@ -6,295 +6,9 @@ import json
 
 app = Flask(__name__)
 
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Math Learning Assistant</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            max-width: 800px; 
-            margin: 2rem auto; 
-            padding: 0 1rem; 
-            transition: background-color 0.3s, color 0.3s;
-        }
-        /* Dark mode styles */
-        body.dark-mode { 
-            background-color: #1a1a1a;
-            color: #e0e0e0;
-        }
-        .dark-mode .question { 
-            background-color: #2d2d2d; 
-        }
-        .dark-mode .answer { 
-            background-color: #1a2632; 
-        }
-        .dark-mode .hint-area { 
-            background-color: #1a291f; 
-        }
-        .dark-mode .work-area { 
-            background-color: #2d2616; 
-        }
-        .dark-mode textarea,
-        .dark-mode input {
-            background-color: #2d2d2d;
-            color: #e0e0e0;
-            border: 1px solid #404040;
-        }
-        .dark-mode button {
-            background-color: #404040;
-            color: #e0e0e0;
-            border: 1px solid #505050;
-        }
-        .dark-mode #checkAnswer {
-            background-color: #2d4d33;
-        }
-        /* Theme toggle button */
-        .theme-toggle {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            padding: 0.5rem;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            border: none;
-            background: transparent;
-        }
-        .question, .answer, .work-area, .hint-area { 
-            padding: 1rem; 
-            margin: 1rem 0; 
-            border-radius: 4px;
-            transition: background-color 0.3s;
-        }
-        .question { background-color: #f0f0f0; }
-        .answer { background-color: #e3f2fd; display: none; }
-        .hint-area { background-color: #e8f5e9; }
-        .work-area { background-color: #fff3e0; }
-        button { 
-            padding: 0.5rem 1rem; 
-            margin: 0.5rem;
-            cursor: pointer;
-            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-        }
-        .loading { 
-            display: none; 
-            color: #666;
-            margin: 0.5rem 0;
-            font-style: italic;
-        }
-        textarea {
-            width: 100%;
-            min-height: 100px;
-            margin: 0.5rem 0;
-            padding: 0.5rem;
-            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-        }
-        .input-area {
-            margin: 1rem 0;
-        }
-        .error {
-            color: #d32f2f;
-            padding: 0.5rem;
-            margin: 0.5rem 0;
-        }
-        .button-group {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-        #checkAnswer {
-            background-color: #4caf50;
-            color: white;
-            border: none;
-        }
-        .response-area {
-            margin-top: 0.5rem;
-            min-height: 1em;
-        }
-        .typing-indicator::after {
-            content: '▋';
-            animation: blink 1s infinite;
-        }
-        @keyframes blink {
-            50% { opacity: 0; }
-        }
-    </style>
-    <script>
-        // Dark mode toggle
-        function toggleDarkMode() {
-            const body = document.body;
-            const button = document.getElementById('theme-toggle');
-            const isDark = body.classList.toggle('dark-mode');
-            button.textContent = isDark ? '🌞' : '🌙';
-            localStorage.setItem('darkMode', isDark);
-        }
-
-        // Load saved theme preference
-        document.addEventListener('DOMContentLoaded', () => {
-            document.body.classList.add('dark-mode');
-            document.getElementById('theme-toggle').textContent = '🌞';
-            localStorage.setItem('darkMode', true);
-        });
-
-        async function streamResponse(url, data, responseElement, loadingElement) {
-            loadingElement.style.display = 'block';
-            responseElement.textContent = '';
-            responseElement.classList.add('typing-indicator');
-            
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(data)
-                });
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                
-                while (true) {
-                    const {value, done} = await reader.read();
-                    if (done) break;
-                    
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\\n');
-                    
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const data = JSON.parse(line.slice(6));
-                            responseElement.textContent += data.token;
-                        }
-                    }
-                }
-            } catch (error) {
-                responseElement.textContent = 'Error: ' + error;
-            } finally {
-                loadingElement.style.display = 'none';
-                responseElement.classList.remove('typing-indicator');
-            }
-        }
-
-        async function checkAnswer() {
-            const userAnswer = document.getElementById('user-answer').value;
-            const questionText = document.getElementById('question').textContent;
-            
-            await streamResponse(
-                '/check_answer',
-                {
-                    question: questionText,
-                    answer: userAnswer
-                },
-                document.getElementById('feedback'),
-                document.getElementById('check-loading')
-            );
-        }
-
-        async function getHint() {
-            const questionText = document.getElementById('question').textContent;
-            
-            await streamResponse(
-                '/get_hint',
-                {question: questionText},
-                document.getElementById('hint-text'),
-                document.getElementById('hint-loading')
-            );
-            
-            document.getElementById('hint-text').style.display = 'block';
-        }
-
-        async function askQuestion() {
-            const userQuestion = document.getElementById('user-question').value;
-            if (!userQuestion.trim()) {
-                document.getElementById('error').textContent = 'Please enter a question first';
-                return;
-            }
-            
-            const questionText = document.getElementById('question').textContent;
-            
-            await streamResponse(
-                '/ask_question',
-                {
-                    context: questionText,
-                    question: userQuestion
-                },
-                document.getElementById('llm-response'),
-                document.getElementById('question-loading')
-            );
-        }
-
-        async function showFullSolution() {
-            const questionText = document.getElementById('question').textContent;
-            const solutionArea = document.getElementById('answer');
-            
-            solutionArea.style.display = 'block';
-            
-            await streamResponse(
-                '/get_solution',
-                {question: questionText},
-                solutionArea,
-                document.getElementById('solution-loading')
-            );
-        }
-    </script>
-</head>
-<body>
-    <button onclick="toggleDarkMode()" id="theme-toggle" class="theme-toggle">
-    🌞
-    </button>
-
-    <h1>Math Learning Assistant</h1>
-    
-    <div class="question">
-        <h3>Question:</h3>
-        <p id="question">{{ question }}</p>
-    </div>
-
-    <div class="input-area">
-        <h3>Your Answer:</h3>
-        <input type="text" id="user-answer" placeholder="Enter your answer here..." style="padding: 0.5rem; width: 200px;">
-        <button onclick="checkAnswer()" id="checkAnswer">Check Answer</button>
-        <div id="check-loading" class="loading">Teacher is reviewing your answer...</div>
-        <div id="feedback" class="response-area"></div>
-    </div>
-
-    <div class="work-area">
-        <h3>Your Work:</h3>
-        <textarea placeholder="Work out your solution here..."></textarea>
-    </div>
-
-    <div class="hint-area">
-        <h3>Need Help?</h3>
-        <button onclick="getHint()">Get Hint</button>
-        <div id="hint-loading" class="loading">Teacher is writing a hint...</div>
-        <div id="hint-text" class="response-area"></div>
-        
-        <h4>Ask a Specific Question:</h4>
-        <textarea id="user-question" placeholder="E.g., 'How do I start solving this?' or 'Can you explain the first step?'"></textarea>
-        <button onclick="askQuestion()">Ask</button>
-        <div id="question-loading" class="loading">Teacher is typing...</div>
-        <div id="llm-response" class="response-area"></div>
-    </div>
-
-    <div id="error" class="error"></div>
-    <div id="solution-loading" class="loading">Teacher is writing the complete solution...</div>
-    <div class="answer" id="answer"></div>
-    
-    <div class="button-group">
-        <button onclick="window.location.reload()">New Question</button>
-        <button onclick="showFullSolution()">Show Full Solution</button>
-    </div>
-</body>
-</html>
-"""
-
 print("Loading FineMath dataset...")
 try:
+    # Adjust split or dataset name as needed
     dataset = load_dataset("HuggingFaceTB/finemath", "finemath-4plus", split="train[:1000]")
     print(f"Loaded {len(dataset)} samples")
 except Exception as e:
@@ -302,7 +16,7 @@ except Exception as e:
     dataset = []
 
 def extract_question(text: str) -> str:
-    """Extract a math question from text, looking for common patterns"""
+    """Extract a math question from text, looking for common patterns."""
     markers = ["Problem:", "Question:", "Find:", "Solve:", "Calculate:"]
     
     for marker in markers:
@@ -321,13 +35,30 @@ def extract_question(text: str) -> str:
     return None
 
 def stream_ollama(prompt: str):
-    """Query Ollama API with streaming response"""
+    """
+    Query Ollama API with streaming response.
+    We append instructions for Markdown + LaTeX usage to every prompt.
+    """
+    # Add your "Provide your response using markdown ..." instructions here:
+    prompt_with_latex = (
+        prompt
+        + "\n\nProvide your response using **Markdown** formatting with **LaTeX** math."
+        + " Use single $ for inline math and double $$ for display equations.\n"
+        + "For example:\n"
+        + "- Inline: $x^2$, $\\frac{a}{b}$\n"
+        + "- Display: $$\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$\n"
+        + "Make sure to:\n"
+        + "1. Use proper LaTeX escaping for backslashes and special characters\n"
+        + "2. Leave no space between $ and the math content\n"
+        + "3. Put display equations on their own line\n"
+    )
+
     try:
         response = requests.post(
             'http://localhost:11434/api/generate',
             json={
                 'model': 'llama3.3',
-                'prompt': prompt,
+                'prompt': prompt_with_latex,
                 'stream': True
             },
             stream=True,
@@ -338,30 +69,42 @@ def stream_ollama(prompt: str):
         for line in response.iter_lines():
             if line:
                 json_response = json.loads(line)
+                # Each chunk of text is streamed out as JSON
                 yield json_response.get('response', '')
                 
     except requests.ConnectionError:
-        yield "Error: Cannot connect to Ollama. Is it running on port 11434?"
+        yield "**Error:** Cannot connect to Ollama. Is it running on port 11434?"
     except requests.Timeout:
-        yield "Error: Ollama request timed out. Try again?"
+        yield "**Error:** Ollama request timed out. Try again?"
     except Exception as e:
-        yield f"Error querying Ollama: {str(e)}"
+        yield f"**Error:** {str(e)}"
 
 def create_stream_response(tokens):
-    """Helper function to create a stream response"""
+    """
+    Produce SSE lines. Each line has the JSON of one token chunk:
+        data: {"token": "..."}
+    """
     for token in tokens:
-        yield f"data: {json.dumps({'token': token})}\n\n"
+        # Make sure the token is properly JSON-encoded
+        sse_json = json.dumps({"token": token})
+        yield f"data: {sse_json}\n\n"
+
 
 @app.route('/')
 def home():
-    for _ in range(10):  # Try up to 10 times to get a good question
+    if not dataset:
+        # If dataset is empty or not loaded
+        return render_template('index.html', question="Error: No dataset loaded")
+
+    # Try up to 10 times to grab a question that is not None
+    for _ in range(10):
         sample = random.choice(dataset)
         question = extract_question(sample['text'])
         if question:
-            return render_template_string(HTML_TEMPLATE, question=question)
-    
-    return render_template_string(HTML_TEMPLATE, 
-                                question="Error: Could not find a suitable question")
+            return render_template('index.html', question=question)
+
+    # If nothing was found
+    return render_template('index.html', question="Error: Could not find a suitable question")
 
 @app.route('/get_hint', methods=['POST'])
 def get_hint():
@@ -369,12 +112,12 @@ def get_hint():
     if not question:
         return jsonify({'error': 'No question provided'}), 400
         
-    prompt = f"""You are a helpful math tutor. Give a small hint for solving this problem, 
-    without giving away the full solution:
-
-    {question}
-
-    Provide just one helpful hint that guides the student toward the solution."""
+    prompt = (
+        "You are a helpful math tutor. Give a small hint for solving this problem, "
+        "without giving away the full solution:\n\n"
+        f"{question}\n\n"
+        "Provide just one helpful hint that guides the student toward the solution."
+    )
 
     return Response(create_stream_response(stream_ollama(prompt)), mimetype='text/event-stream')
 
@@ -386,12 +129,13 @@ def check_answer():
     if not question or not user_answer:
         return jsonify({'error': 'Missing question or answer'}), 400
         
-    prompt = f"""You are a helpful math tutor. Check if this answer is correct:
-
-    Question: {question}
-    Student's answer: {user_answer}
-
-    Provide encouraging feedback, whether right or wrong. If wrong, give a gentle hint."""
+    prompt = (
+        "You are a helpful math tutor. Check if this answer is correct:\n\n"
+        f"Question: {question}\n"
+        f"Student's answer: {user_answer}\n\n"
+        "Provide encouraging feedback, whether right or wrong. "
+        "If wrong, give a gentle hint."
+    )
 
     return Response(create_stream_response(stream_ollama(prompt)), mimetype='text/event-stream')
 
@@ -403,12 +147,12 @@ def ask_question():
     if not context or not user_question:
         return jsonify({'error': 'Missing context or question'}), 400
         
-    prompt = f"""You are a helpful math tutor. Answer this specific question:
-
-    Problem: {context}
-    Student's question: {user_question}
-
-    Give a clear, helpful response that guides without giving away the complete solution."""
+    prompt = (
+        "You are a helpful math tutor. Answer this specific question:\n\n"
+        f"Problem: {context}\n"
+        f"Student's question: {user_question}\n\n"
+        "Give a clear, helpful response that guides without giving away the complete solution."
+    )
 
     return Response(create_stream_response(stream_ollama(prompt)), mimetype='text/event-stream')
 
@@ -418,11 +162,11 @@ def get_solution():
     if not question:
         return jsonify({'error': 'No question provided'}), 400
         
-    prompt = f"""You are a helpful math tutor. Please provide a complete, detailed solution:
-
-    {question}
-
-    Show all steps and explain each one clearly."""
+    prompt = (
+        "You are a helpful math tutor. Please provide a complete, detailed solution:\n\n"
+        f"{question}\n\n"
+        "Show all steps and explain each one clearly."
+    )
 
     return Response(create_stream_response(stream_ollama(prompt)), mimetype='text/event-stream')
 
@@ -430,5 +174,5 @@ if __name__ == '__main__':
     if not dataset:
         print("Error: Could not load dataset. Please check your internet connection and try again.")
         exit(1)
-
+    # Run on port 5000 or whichever you prefer
     app.run(debug=True, port=5000)
