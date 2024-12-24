@@ -243,3 +243,45 @@ input[type="text"] {
     content: '▋';
     animation: blink 1s infinite;
 }
+
+.math-input-wrapper {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: #2d2d2d;
+    border-radius: 4px;
+}
+
+#math-input {
+    min-height: 50px;
+    padding: 0.5rem;
+    background: #1a1a1a;
+    color: #e0e0e0;
+    border: 1px solid #404040;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+}
+
+.math-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.math-toolbar button {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    background: #404040;
+    color: #e0e0e0;
+    border: 1px solid #505050;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.math-toolbar button:hover {
+    background: #505050;
+}

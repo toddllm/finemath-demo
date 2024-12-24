@@ -14,6 +14,12 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/markdown-it-texmath/css/texmath.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 
+
+    <!-- MathQuill -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
+
     <!-- Application Script -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </head>
@@ -31,7 +37,19 @@
 
     <div class="input-area">
         <h3>Your Answer:</h3>
-        <input type="text" id="user-answer" placeholder="Enter your answer here..." style="padding: 0.5rem; width: 200px;">
+        <div class="math-input-wrapper">
+            <div id="math-input"></div>
+            <div class="math-toolbar">
+                <button type="button" onclick="insertSymbol('\\sqrt{}')">&radic;</button>
+                <button type="button" onclick="insertSymbol('\\frac{}{}')">&frac12;</button>
+                <button type="button" onclick="insertSymbol('^{}')">&xwedge;</button>
+                <button type="button" onclick="insertSymbol('\\pi')">&pi;</button>
+                <button type="button" onclick="insertSymbol('\\theta')">&theta;</button>
+                <button type="button" onclick="insertSymbol('\\infty')">&infin;</button>
+                <button type="button" onclick="insertSymbol('\\sum_{}')">&Sigma;</button>
+                <button type="button" onclick="insertSymbol('\\int_{}')">&int;</button>
+            </div>
+        </div>
         <button onclick="checkAnswer()" id="checkAnswer">Check Answer</button>
         <div id="check-loading" class="loading">Teacher is reviewing your answer...</div>
         <div id="feedback" class="response-area"></div>

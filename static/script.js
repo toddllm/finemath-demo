@@ -1,6 +1,8 @@
 // Initialize markdown-it and functions for LaTeX rendering
 let md; // We'll initialize this after DOM loads
 
+let mathField; // Global reference to the MathQuill field
+
 // Dark mode toggle function
 function toggleDarkMode() {
     const body = document.body;
@@ -82,7 +84,7 @@ async function streamResponse(url, data, responseElement, loadingElement) {
 
 // UI interaction functions
 async function checkAnswer() {
-    const userAnswer = document.getElementById('user-answer').value;
+    const userAnswer = mathField.latex(); // Get LaTeX from MathQuill
     const questionText = document.getElementById('question').textContent;
     
     await streamResponse(
@@ -163,12 +165,32 @@ async function loadQuestion() {
     }
 }
 
+// Function to insert symbols from the toolbar
+function insertSymbol(symbol) {
+    mathField.write(symbol);
+    mathField.focus();
+}
+
 // Update the DOMContentLoaded listener to load question after initialization
 document.addEventListener('DOMContentLoaded', () => {
     // Set initial dark mode state
     document.body.classList.add('dark-mode');
     document.getElementById('theme-toggle').textContent = '🌞';
     localStorage.setItem('darkMode', true);
+
+    // Initialize MathQuill
+    const MQ = MathQuill.getInterface(2);
+    const mathInput = document.getElementById('math-input');
+    mathField = MQ.MathField(mathInput, {
+        spaceBehavesLikeTab: true,
+        handlers: {
+            edit: function() {
+                // Optional: Do something when the user edits the math
+                console.log(mathField.latex()); // Get the LaTeX content
+            }
+        }
+    });
+
 
     // Initialize markdown-it with KaTeX
     const tm = texmath.use(katex);
