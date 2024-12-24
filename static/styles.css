@@ -285,3 +285,51 @@ input[type="text"] {
 .math-toolbar button:hover {
     background: #505050;
 }
+
+.mq-editable-field {
+    min-height: 50px;
+    padding: 8px;
+    margin-bottom: 10px;
+    background: #2d2d2d;
+    border: 1px solid #404040;
+    border-radius: 4px;
+    font-size: 1.2em;
+}
+
+.mq-math-mode {
+    color: #e0e0e0;
+}
+
+.mq-math-mode .mq-root-block {
+    padding: 4px;
+}
+
+.math-toolbar button {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 4px;
+    background: #404040;
+    color: #e0e0e0;
+    border: 1px solid #505050;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.math-toolbar button:hover {
+    background: #505050;
+    transform: translateY(-1px);
+}
+
+.dark-mode .mq-editable-field {
+    background: #1a1a1a;
+    border-color: #404040;
+}
+
+.dark-mode .mq-math-mode {
+    color: #e0e0e0;
+}

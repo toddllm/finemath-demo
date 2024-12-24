@@ -38,16 +38,16 @@
     <div class="input-area">
         <h3>Your Answer:</h3>
         <div class="math-input-wrapper">
-            <div id="math-input"></div>
+            <div id="math-input" class="mq-editable-field"></div>
             <div class="math-toolbar">
-                <button type="button" onclick="insertSymbol('\\sqrt{}')">&radic;</button>
-                <button type="button" onclick="insertSymbol('\\frac{}{}')">&frac12;</button>
-                <button type="button" onclick="insertSymbol('^{}')">&xwedge;</button>
-                <button type="button" onclick="insertSymbol('\\pi')">&pi;</button>
-                <button type="button" onclick="insertSymbol('\\theta')">&theta;</button>
-                <button type="button" onclick="insertSymbol('\\infty')">&infin;</button>
-                <button type="button" onclick="insertSymbol('\\sum_{}')">&Sigma;</button>
-                <button type="button" onclick="insertSymbol('\\int_{}')">&int;</button>
+                <button type="button" onclick="insertSymbol('\\sqrt{}')" title="Square root">√</button>
+                <button type="button" onclick="insertSymbol('\\frac{}{}')" title="Fraction">⁄</button>
+                <button type="button" onclick="insertSymbol('^{}')" title="Exponent">^</button>
+                <button type="button" onclick="insertSymbol('\\pi')" title="Pi">π</button>
+                <button type="button" onclick="insertSymbol('\\theta')" title="Theta">θ</button>
+                <button type="button" onclick="insertSymbol('\\infty')" title="Infinity">∞</button>
+                <button type="button" onclick="insertSymbol('\\sum_{}')" title="Summation">Σ</button>
+                <button type="button" onclick="insertSymbol('\\int_{}')" title="Integral">∫</button>
             </div>
         </div>
         <button onclick="checkAnswer()" id="checkAnswer">Check Answer</button>

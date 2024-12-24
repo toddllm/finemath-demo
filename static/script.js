@@ -1,230 +1,248 @@
-// Initialize markdown-it and functions for LaTeX rendering
-let md; // We'll initialize this after DOM loads
+// Initialize markdown-it with KaTeX support
+const md = window.markdownit()
+    .use(texmath, {
+        engine: katex,
+        delimiters: ['dollars', 'brackets'],
+        katexOptions: { macros: { "\\RR": "\\mathbb{R}" } }
+    });
 
-let mathField; // Global reference to the MathQuill field
-
-// Dark mode toggle function
-function toggleDarkMode() {
-    const body = document.body;
-    const button = document.getElementById('theme-toggle');
-    const isDark = body.classList.toggle('dark-mode');
-    button.textContent = isDark ? '🌞' : '🌙';
-    localStorage.setItem('darkMode', isDark);
+// Global error handler
+function showError(message) {
+    const errorDiv = document.getElementById('error');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+    }, 5000);
 }
 
-function formatQuestion() {
-    const questionElement = document.getElementById('question');
-    if (!questionElement) return; // Guard against missing element
-
-    const questionText = questionElement.textContent || questionElement.innerText;
-    if (!questionText) return; // Guard against empty content
-    
+// Unified markdown rendering function
+function renderMarkdown(text) {
     try {
-        // Don't format if it's an error message
-        if (!questionText.startsWith('Error:')) {
-            questionElement.innerHTML = md.render(questionText);
-        }
-    } catch (error) {
-        console.error('Error rendering question:', error);
-        questionElement.textContent = questionText; // Fallback to plain text
+        return md.render(text);
+    } catch (e) {
+        console.error('Error rendering markdown:', e);
+        return text;
     }
-    
-    // Remove loading state
-    questionElement.classList.remove('loading-question');
 }
 
-// Generic streaming function for server-sent events
-async function streamResponse(url, data, responseElement, loadingElement) {
+// Unified stream handling function
+function handleStream(response, outputElement, loadingElement) {
+    const reader = response.body.getReader();
+    let buffer = '';
+
     loadingElement.style.display = 'block';
-    responseElement.textContent = '';
-    responseElement.classList.add('typing-indicator');
+    outputElement.innerHTML = '';
 
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
+    reader.read().then(function processResult(result) {
+        if (result.done) {
+            if (buffer.trim()) {
+                outputElement.innerHTML = renderMarkdown(buffer);
+            }
+            loadingElement.style.display = 'none';
+            return;
+        }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let accumulatedText = '';
-        let leftover = '';
-
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-
-            leftover += decoder.decode(value, { stream: true });
-            const lines = leftover.split('\n');
-            leftover = lines.pop() || '';
-
-            for (const line of lines) {
-                if (!line.startsWith('data: ')) continue;
-                
-                let raw = line.slice(6).trim();
-                if (!raw) continue;
-
+        const chunk = new TextDecoder().decode(result.value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+            if (line.startsWith('data: ')) {
                 try {
-                    const sseData = JSON.parse(raw);
-                    accumulatedText += sseData.token;
-                    responseElement.innerHTML = md.render(accumulatedText);
-                } catch (err) {
-                    console.warn('Skipping malformed SSE line:', line);
+                    const data = JSON.parse(line.slice(5));
+                    buffer += data.token;
+                    outputElement.innerHTML = renderMarkdown(buffer);
+                } catch (e) {
+                    console.error('Error parsing JSON:', e);
                 }
             }
         }
-    } catch (error) {
-        responseElement.innerHTML = md.render(`**Error:** ${error}`);
-    } finally {
+
+        return reader.read().then(processResult);
+    }).catch(error => {
+        showError('Error reading stream: ' + error.message);
         loadingElement.style.display = 'none';
-        responseElement.classList.remove('typing-indicator');
+    });
+}
+
+// Unified fetch function for all endpoints
+async function fetchEndpoint(endpoint, data, outputElement, loadingElement) {
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) throw new Error('Network response was not ok');
+        handleStream(response, outputElement, loadingElement);
+
+    } catch (error) {
+        showError('Error: ' + error.message);
+        if (loadingElement) loadingElement.style.display = 'none';
     }
 }
 
-// UI interaction functions
-async function checkAnswer() {
-    const userAnswer = mathField.latex(); // Get LaTeX from MathQuill
-    const questionText = document.getElementById('question').textContent;
-    
-    await streamResponse(
-        '/check_answer',
-        { question: questionText, answer: userAnswer },
-        document.getElementById('feedback'),
-        document.getElementById('check-loading')
-    );
-}
-
-async function getHint() {
-    const questionText = document.getElementById('question').textContent;
-    await streamResponse(
-        '/get_hint',
-        { question: questionText },
-        document.getElementById('hint-text'),
-        document.getElementById('hint-loading')
-    );
-    document.getElementById('hint-text').style.display = 'block';
-}
-
+// Handler functions for each action
 async function askQuestion() {
-    const userQuestion = document.getElementById('user-question').value.trim();
-    const errorDiv = document.getElementById('error');
-    errorDiv.textContent = '';
-
-    if (!userQuestion) {
-        errorDiv.textContent = 'Please enter a question first';
+    // Get question text without HTML tags
+    const question = document.getElementById('question').innerText;
+    const userQuestion = document.getElementById('user-question').value;
+    
+    if (!userQuestion.trim()) {
+        showError('Please enter a question');
         return;
     }
-
-    const questionText = document.getElementById('question').textContent;
-    await streamResponse(
+    
+    fetchEndpoint(
         '/ask_question',
-        { context: questionText, question: userQuestion },
+        { context: question, question: userQuestion },
         document.getElementById('llm-response'),
         document.getElementById('question-loading')
     );
 }
 
-async function showFullSolution() {
-    const questionText = document.getElementById('question').textContent;
-    const solutionArea = document.getElementById('answer');
-    solutionArea.style.display = 'block';
+async function getHint() {
+    const question = document.getElementById('question').textContent;
+    
+    fetchEndpoint(
+        '/get_hint',
+        { question },
+        document.getElementById('hint-text'),
+        document.getElementById('hint-loading')
+    );
+}
 
-    await streamResponse(
+async function checkAnswer() {
+    const question = document.getElementById('question').innerText;
+    const mathField = MQ.MathField(document.querySelector('#math-input'));
+    const answer = mathField.latex();
+    
+    if (!answer.trim()) {
+        showError('Please enter an answer');
+        return;
+    }
+    
+    fetchEndpoint(
+        '/check_answer',
+        { question, answer },
+        document.getElementById('feedback'),
+        document.getElementById('check-loading')
+    );
+}
+
+async function showFullSolution() {
+    const question = document.getElementById('question').innerText;
+    const answerDiv = document.getElementById('answer');
+    
+    answerDiv.style.display = 'block';
+    
+    fetchEndpoint(
         '/get_solution',
-        { question: questionText },
-        solutionArea,
+        { question },
+        answerDiv,
         document.getElementById('solution-loading')
     );
 }
-async function loadQuestion() {
-    const questionElement = document.getElementById('question');
-    questionElement.classList.add('loading-question');
-    console.log("Loading new question...");
 
+// MathQuill initialization
+const MQ = MathQuill.getInterface(2);
+let mathField; // Global reference to the math field
+
+document.addEventListener('DOMContentLoaded', function() {
+    const mathInput = document.querySelector('#math-input');
+    if (mathInput) {
+        mathField = MQ.MathField(mathInput, {
+            spaceBehavesLikeTab: true,
+            handlers: {
+                enter: () => checkAnswer()
+            },
+            autoCommands: 'pi theta sqrt sum int',
+            autoOperatorNames: 'sin cos tan'
+        });
+    }
+});
+
+// Math symbol insertion
+function insertSymbol(symbol) {
+    if (!mathField) return;
+    
+    // Map of special commands that need different handling
+    const symbolMap = {
+        '\\sqrt{}': () => {
+            mathField.cmd('\\sqrt');
+            mathField.typedText(' ');
+        },
+        '\\frac{}{}': () => {
+            mathField.cmd('\\frac');
+            mathField.typedText(' ');
+        },
+        '^{}': () => {
+            mathField.cmd('^');
+            mathField.typedText(' ');
+        },
+        '\\sum_{}': () => {
+            mathField.cmd('\\sum');
+            mathField.cmd('_');
+            mathField.typedText(' ');
+        },
+        '\\int_{}': () => {
+            mathField.cmd('\\int');
+            mathField.cmd('_');
+            mathField.typedText(' ');
+        }
+    };
+
+    if (symbolMap[symbol]) {
+        symbolMap[symbol]();
+    } else {
+        mathField.cmd(symbol);
+    }
+    mathField.focus();
+}
+
+// Theme toggling
+function toggleDarkMode() {
+    document.body.classList.toggle('dark-mode');
+    document.documentElement.classList.toggle('dark-mode');
+    const button = document.getElementById('theme-toggle');
+    button.textContent = document.body.classList.contains('dark-mode') ? '🌞' : '🌙';
+}
+
+// New question loading
+async function newQuestion() {
+    const questionElement = document.getElementById('question');
+    const answerDiv = document.getElementById('answer');
+    const feedbackDiv = document.getElementById('feedback');
+    const hintDiv = document.getElementById('hint-text');
+    const responseDiv = document.getElementById('llm-response');
+    const mathField = MQ.MathField(document.querySelector('#math-input'));
+    
+    questionElement.classList.add('loading-question');
+    answerDiv.style.display = 'none';
+    feedbackDiv.innerHTML = '';
+    hintDiv.innerHTML = '';
+    responseDiv.innerHTML = '';
+    mathField.latex('');
+    
     try {
         const response = await fetch('/get_question');
-        const data = await response.json();
-        console.log("Received response:", data);
+        if (!response.ok) throw new Error('Network response was not ok');
         
-        if (data.error) {
-            console.error("Error from server:", data.error);
-            questionElement.textContent = data.error;
-            return;
-        }
-
-        console.log("Setting question text:", data.question);
-        questionElement.textContent = data.question;
-        formatQuestion(); // Format after setting text
-        console.log("Question formatted");
+        const data = await response.json();
+        // Apply markdown/LaTeX rendering to the question
+        questionElement.innerHTML = renderMarkdown(data.question);
+        questionElement.classList.remove('loading-question');
+        
     } catch (error) {
-        console.error('Error loading question:', error);
-        questionElement.textContent = 'Error loading question. Please try again.';
-    } finally {
+        showError('Error loading new question: ' + error.message);
         questionElement.classList.remove('loading-question');
     }
 }
 
-// Function to insert symbols from the toolbar
-function insertSymbol(symbol) {
-    mathField.write(symbol);
-    mathField.focus();
-}
-
-// Update the DOMContentLoaded listener to load question after initialization
+// Load initial question on page load
 document.addEventListener('DOMContentLoaded', () => {
-    // Set initial dark mode state
-    document.body.classList.add('dark-mode');
-    document.getElementById('theme-toggle').textContent = '🌞';
-    localStorage.setItem('darkMode', true);
-
-    // Initialize MathQuill
-    const MQ = MathQuill.getInterface(2);
-    const mathInput = document.getElementById('math-input');
-    mathField = MQ.MathField(mathInput, {
-        spaceBehavesLikeTab: true,
-        handlers: {
-            edit: function() {
-                // Optional: Do something when the user edits the math
-                console.log(mathField.latex()); // Get the LaTeX content
-            }
-        }
-    });
-
-
-    // Initialize markdown-it with KaTeX
-    const tm = texmath.use(katex);
-    md = markdownit({
-        html: true,
-        linkify: true,
-        typographer: true,
-        breaks: true,
-        highlight: function (str, lang) {
-            if (lang && hljs.getLanguage(lang)) {
-                try {
-                    return hljs.highlight(str, { language: lang }).value;
-                } catch (__) {}
-            }
-            return '';
-        }
-    }).use(tm, {
-        engine: katex,
-        delimiters: 'dollars',
-        katexOptions: { 
-            macros: {
-                "\\RR": "\\mathbb{R}",
-                "\\NN": "\\mathbb{N}",
-                "\\ZZ": "\\mathbb{Z}"
-            },
-            throwOnError: false
-        }
-    });
-
-    // Load the initial question
-    loadQuestion();
+    newQuestion();
 });
-
-// Also update the New Question button handler
-async function newQuestion() {
-    await loadQuestion();
-}

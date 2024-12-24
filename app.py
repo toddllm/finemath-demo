@@ -63,7 +63,8 @@ def stream_ollama(prompt: str):
         response = requests.post(
             'http://localhost:11434/api/generate',
             json={
-                'model': 'llama3.3',
+                'model': 'smollm2',
+            #    'model': 'llama3.3',
                 'prompt': prompt_with_latex,
                 'stream': True
             },
